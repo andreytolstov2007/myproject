@@ -12,7 +12,7 @@ class FastSLinkedList {
 private:
     struct Node {
         T data;
-        DynamicArray<Node*> next;
+        DynamicArray<Node*> next{1};
     };
 
     Node *top;
@@ -21,7 +21,7 @@ private:
     long list_length;
 
 public:
-    FastSLinkedList () {
+    FastSLinkedList () : boosters(4) {
         top = nullptr;
         low = nullptr;
         list_length = 0;
