@@ -1,0 +1,250 @@
+#ifndef ArraySequence_H
+#define ArraySequence_H
+
+#include "Sequence.h"
+#include "datas/DynamicArray.h"
+
+template <typename T>
+class ArraySequence : public Sequence<T> {
+private:
+    DynamicArray<T> items;
+
+protected:
+    virtual ArraySequence<T>* Instance() { return this; }
+
+public:
+    ArraySequence() {}
+
+    ArraySequence(T *items_arr, long count) : items(items_arr, count) {}
+
+    explicit ArraySequence(long size) : items(size) {}
+
+    ArraySequence(const ArraySequence<T> &other) : items(other.items) {}
+
+    ~ArraySequence() override {}
+
+    T Get_first() const override {
+        if (Get_length() == 0) { throw EmptyCollection(); }
+        return items.Get_arr_index(0);
+    }
+
+    T Get_last() const override {
+        if (Get_length() == 0) { throw EmptyCollection(); }
+        return items.Get_arr_index(Get_length() - 1);
+    }
+
+    T Get(long index) const override { return items.Get_arr_index(index); }
+
+    long Get_length() const override { return items.Get_length(); }
+
+    void Set(long index, T item) { items.Set(index, item); }
+
+    Sequence<T>* Get_subsequence(long start_index, long end_index) const override {
+        if ((start_index < 0) || (end_index >= Get_length())) { throw IndexOutOfRange(); }
+        if (start_index > end_index) { throw IndexesTranslated(); }
+
+        long new_size = end_index - start_index + 1;
+        ArraySequence<T> *result = new ArraySequence<T>(new_size);
+        for (long new_items_index = 0; new_items_index < new_size; new_items_index ++) {
+            result -> items.Set(new_items_index, items.Get_arr_index(start_index + new_items_index));
+        }
+        return result;
+    }
+
+    virtual ArraySequence<T>* Clone() const override { return new ArraySequence<T>(*this); }
+
+    Sequence<T>* Append(T item) override {
+        ArraySequence<T> *result = Instance();
+        result -> items.Append(item);
+        return result;
+    }
+
+    Sequence<T>* Prepend(T item) override {
+        ArraySequence<T> *result = Instance();
+        result -> items.Prepend(item);
+        return result;
+    }
+
+    Sequence<T>* Insert_at(T item, long index) override {
+        ArraySequence<T> *result = Instance();
+        result -> items.Insert_at(item, index);
+        return result;
+    }
+
+    Sequence<T>* Remove_last() {
+        ArraySequence<T> *result = Instance();
+        result -> items.Resize(items.Get_length() - 1);
+        return result;
+    }
+
+    Sequence<T>* Concat(Sequence<T> *other) override {
+        if (other == nullptr) { throw NullPointerError(); }
+
+        ArraySequence<T> *result = Instance();
+        long new_size = result -> Get_length() + other -> Get_length();
+
+        DynamicArray<T> new_arr(new_size);
+        for (long this_items_index = 0; this_items_index < result -> Get_length(); this_items_index ++) {
+            new_arr.Set(this_items_index, result -> Get(this_items_index));
+        }
+        for (long other_items_index = 0; other_items_index < other -> Get_length(); other_items_index ++) {
+            new_arr.Set(result -> Get_length() + other_items_index, other -> Get(other_items_index));
+        }
+        result -> items = new_arr;
+        return result;
+    }
+
+    Sequence<T>* Map(T (*function)(T)) const override {
+        if (function == nullptr) { throw NullPointerError(); }
+
+        ArraySequence<T> *result = new ArraySequence<T>(Get_length());
+        for (long new_items_index = 0; new_items_index < Get_length(); new_items_index ++) {
+            result -> items.Set(new_items_index, function(Get(new_items_index)));
+        }
+        return result;
+    }
+
+    Sequence<T>* Where(bool (*predicate)(T)) const override {
+        if (predicate == nullptr) { throw NullPointerError(); }
+
+        ArraySequence<T> *result = new ArraySequence<T>(Get_length());
+        long result_index = 0;
+        for (long items_index = 0; items_index < Get_length(); items_index ++) {
+            T val = Get(items_index);
+            if (predicate(val)) {
+                result -> items.Set(result_index, val);
+                result_index ++;
+            }
+        }
+        result -> items.Resize(result_index);
+        return result;
+    }
+
+    T Reduce(T (*function)(T, T), T init) const override {
+        if (function == nullptr) { throw NullPointerError(); }
+
+        T result = init;
+        for (long items_index = 0; items_index < Get_length(); items_index ++) {
+            result = function(result, Get(items_index));
+        }
+        return result;
+    }
+
+    Option<T> Try_get_first(bool (*predicate)(T)) const override {
+        if (predicate == nullptr) {
+            if (Get_length() > 0) { return Option<T>(Get(0)); }
+            return Option<T>();
+        }
+
+        for (long items_index = 0; items_index < Get_length(); items_index ++) {
+            T val = Get(items_index);
+            if (predicate(val)) { return Option<T>(val); }
+        }
+        return Option<T>();
+    }
+
+    Option<T> Try_get_last(bool (*predicate)(T)) const override {
+        if (predicate == nullptr) {
+            if (Get_length() > 0) { return Option<T>(Get(Get_length() - 1)); }
+            return Option<T>();
+        }
+
+        for (long items_index = (Get_length() - 1); items_index >= 0; items_index --) {
+            T val = Get(items_index);
+            if (predicate(val)) { return Option<T>(val); }
+        }
+        return Option<T>();
+    }
+
+    Sequence<T>* Slice(long start, long count, Sequence<T> *insert_seq = nullptr) override {
+        ArraySequence<T> *result = Instance();
+        long length = result -> Get_length();
+        if ((start < 0) || (count < 0) || (start >= length) || (start + count > length)) { throw IndexOutOfRange(); }
+
+        long insert_size = 0;
+        if (insert_seq != nullptr) { insert_size = insert_seq -> Get_length(); }
+
+        long new_size = length - count + insert_size;
+        DynamicArray<T> new_arr(new_size);
+        long index_new = 0;
+        for (long index_new_arr = 0; index_new_arr < start; index_new_arr ++) {
+            new_arr.Set(index_new, result -> Get(index_new_arr));
+            index_new ++;
+        }
+        if (insert_seq != nullptr) {
+            for (long index_new_arr = 0; index_new_arr < insert_size; index_new_arr ++) {
+                new_arr.Set(index_new, insert_seq -> Get(index_new_arr));
+                index_new ++;
+            }
+        }
+        for (long index_new_arr = (start + count); index_new_arr < length; index_new_arr ++) {
+            new_arr.Set(index_new, result -> Get(index_new_arr));
+            index_new ++;
+        }
+
+        result -> items = new_arr;
+        return result;
+    }
+
+    Sequence<T>* Zip(Sequence<T> *other) const override {
+        if (other == nullptr) { throw NullPointerError(); }
+
+        long min_size;
+        if (Get_length() < other -> Get_length()) {
+            min_size = Get_length();
+        }
+        else {
+            min_size = other -> Get_length();
+        }
+
+        ArraySequence<T> *result = new ArraySequence<T>();
+        for (long result_index = 0; result_index < min_size; result_index ++) {
+            result -> Append(Get(result_index));
+            result -> Append(other -> Get(result_index));
+        }
+        return result;
+    }
+
+    Sequence<T>* Flat_map(Sequence<T>* (*function)(T)) const override {
+        if (function == nullptr) { throw NullPointerError(); }
+
+        ArraySequence<T> *result = new ArraySequence<T>();
+        for (long items_index = 0; items_index < Get_length(); items_index ++) {
+            Sequence<T> *mapped = function(Get(items_index));
+            if (mapped != nullptr) {
+                for (long mapped_index = 0; mapped_index < mapped -> Get_length(); mapped_index ++) {
+                    result -> Append(mapped -> Get(mapped_index));
+                }
+                delete mapped;
+            }
+        }
+        return result;
+    }
+
+    Enumerator<T> Get_enumerator() override {
+        class ArrayEnumerator : public IEnumerator<T> {
+        private:
+            ArraySequence<T> *seq;
+            long position;
+            long length;
+
+        public:
+            ArrayEnumerator(ArraySequence<T> *s) {
+                seq = s;
+                position = -1;
+                length = s -> Get_length();
+            }
+
+            bool Move_next() override {
+                if ((position + 1) < length) { position ++; return true; }
+                return false;
+            }
+
+            T Get_current() override { return seq -> Get(position); }
+
+            void Reset() override { position = -1; }
+        };
+        return Enumerator<T>(new ArrayEnumerator(this));
+    }
+};
+#endif //ArraySequence_H
