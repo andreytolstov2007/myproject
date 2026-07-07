@@ -139,16 +139,21 @@ public:
     T Pop_first() {
         if (list_length == 0) { throw EmptyCollection(); }
 
-        if (list_length == 1) { top = nullptr; }
-        
-        Node *current_element = top;
-        for (long counter = 0; counter < (list_length - 2); counter ++) {
-            current_element = current_element -> next;
-        }
         T value = low -> data;
-        delete low;
-        low = current_element;
-        low -> next = nullptr;
+        if (list_length == 1) {
+            top = nullptr;
+            delete low;
+            low = nullptr;
+        }
+        else {
+            Node *current_element = top;
+            for (long counter = 0; counter < (list_length - 2); counter ++) {
+                current_element = current_element -> next;
+            }
+            delete low;
+            low = current_element;
+            low -> next = nullptr;
+        }
         list_length --;
         return value;
     }
